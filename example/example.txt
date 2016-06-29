@@ -1,0 +1,14 @@
+ 	
+
+A sample ACARS (Aircraft Communication Addressing and Reporting System) data packet recorded by Jeremy Cooper from the secondary North American ACARS frequency of 130.025 MHz. Recorded in Petaluma, California on 2006-8-15.
+
+The packet in this file has the following human-readable representation:
+Mode 	A
+Aircraft 	B-18722
+Ack 	NAK
+Block id 	2
+Flight 	CI5118
+Label 	B9
+Msg No. 	L05A
+Message 	/KLAX.TI2/024KLAXA91A1
+

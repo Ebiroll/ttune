@@ -34,6 +34,9 @@ int verbose = 0;
 int outtype = 2;
 int netout;
 int airflt = 0;
+#ifdef WITH_TRILBY
+int gain = 1000;
+#endif
 #ifdef WITH_RTL
 int gain = 1000;
 int ppm = 0;
