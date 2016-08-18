@@ -62,7 +62,8 @@ void generate_freq(int *buffer, size_t count, float volume, float freq)
 
 void sweep(double f_start, double f_end, double interval, int n_steps) {
 
-
+#if 0
+    // Single freq
     size_t pos; // sample number we're on
 
     int freq=440;
@@ -73,26 +74,25 @@ void sweep(double f_start, double f_end, double interval, int n_steps) {
       short tmp_shrt=10*v;
       fwrite (&tmp_shrt,	sizeof(short),1, stdout);
     }
+#endif
 
-#if 0
 
 
     for (int i = 0; i < n_steps; ++i) {
         double delta = i / (float)n_steps;
         double t = interval * delta;
         double phase = 2 * M_PI * t * (f_start + (f_end - f_start) * delta / 2);
-        while (phase > 2 * M_PI)
+        //while (phase > 2 * M_PI)  phase -= 2 * M_PI; // optional
         {
-            phase -= 2 * M_PI; // optional
             float tmp=sin(phase);
-            fwrite (&tmp,	sizeof(float),1, stdout);
-            short tmp_shrt=10*tmp;
+            // Float out
+            //fwrite (&tmp,	sizeof(float),1, stdout);
+            short tmp_shrt=32000*tmp;
             fwrite (&tmp_shrt,	sizeof(short),1, stdout);
             //printf("%f\n", sin(phase));
         }
         //printf("%f %f %f", t, phase * 180 / PI, 3 * sin(phase));
     }
-#endif
 }
 
 /*
@@ -121,7 +121,6 @@ int main(int argc, char** argv) {
     snd_pcm_sframes_t frames;
     int DisplayRSSI = 0;
     
-    printf("Trilby RF tuning utility v1.04\n\n");
     if (argc  > 1)
     {
         FreqInHz = 0;
@@ -164,7 +163,7 @@ int main(int argc, char** argv) {
         printf("    -v   Use VHF/UHF antenna (default)\n");
         printf("    -s   Emit sound on playback channel (Ctrl-C to exit)\n");
         printf("    -o   Output to stdout float value of sound (Ctrl-C to exit)\n");
-        printf("    -t   Output Sweep from 10 to 10kHz\n");
+        printf("    -t   Output Sweep from 10 to 10kHz in 60 seconds\n");
         printf("\n");
         return (EXIT_SUCCESS);
      }
@@ -185,24 +184,29 @@ int main(int argc, char** argv) {
     Buf[1] = 0x00;  // addr hi
     Buf[2] = 0x60;  // addr lo
     bcm2835_spi_transfern(Buf, 5);    
-    printf("Firmware version is %d.%02d\n", Buf[3], Buf[4]);
+    if (Debug) printf("Firmware version is %d.%02d\n", Buf[3], Buf[4]);
     
     if (TestSound) {
-        sweep(440,1000,60,48000*60);
+        sweep(10,10000,60,48000*60);
+        sweep(10000,10,60,48000*60);
         exit(0);
     }
 
 
     if (FreqInHz > 0)
     {
-        printf("Tuning to %d kHz\n", FreqInHz);
-        if (HF) printf("HF");
-        else printf("VHF/UHF");
-        printf(", ");
-        if (WB) printf("Wide Band FM");
-        else if (AM) printf("AM");
-        else printf("Narrow Band FM");
-        printf("\n\n");
+        if (!StdOutSound)
+        {
+            printf("Trilby RF tuning utility v1.04\n\n");
+            printf("Tuning to %d kHz\n", FreqInHz);
+             if (HF) printf("HF");
+            else printf("VHF/UHF");
+            printf(", ");
+            if (WB) printf("Wide Band FM");
+            else if (AM) printf("AM");
+            else printf("Narrow Band FM");
+            printf("\n\n");
+        }
         Buf[0] = 0x00;  // write
         Buf[1] = 0x0;  // addr hi for control
         Buf[2] = 0x40;  // addr lo for control
@@ -223,11 +227,11 @@ int main(int argc, char** argv) {
 
     if (EmitSound || StdOutSound)
     {
-        printf("Playback enabled: Ctrl-C to exit\n");
+        fprintf(stderr,"Playback enabled: Ctrl-C to exit\n");
 	if (EmitSound) 
         {
 	  if ((err = snd_pcm_open(&handle, device, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
-	    printf("Playback open error: %s\n", snd_strerror(err));
+        fprintf(stderr,"Playback open error: %s\n", snd_strerror(err));
 	    exit(EXIT_FAILURE);
 	  }
 	  if ((err = snd_pcm_set_params(handle,
@@ -273,17 +277,18 @@ int main(int argc, char** argv) {
             buffer[2] = 0x50;  // addr lo
             bcm2835_spi_transfern(buffer, sizeof(buffer));
             if (StdOutSound) {
-                short *tmp_ptr=(short *) buffer+3;
-		fwrite (tmp_ptr, sizeof(short),NFRAMES,stdout);
+                unsigned char *silly= buffer+3;
+                short *tmp_ptr=(short *) silly;
+                fwrite (tmp_ptr, sizeof(short),NFRAMES,stdout);
                 //float tmp=(float) *tmp_ptr;
                 //fwrite (&tmp,	sizeof(float),1, stdout);
                 // Test s16
-		//short tmp=*tmp_ptr;
-		//for(int q=0;q< NFRAMES;q++) {
-		//  tmp=*tmp_ptr;
-		//  fwrite (&tmp, sizeof(short),1,stdout);
-		//  tmp_ptr++;
-		//}
+                //short tmp=*tmp_ptr;
+                //for(int q=0;q< NFRAMES;q++) {
+                //  tmp=*tmp_ptr;
+                //  fwrite (&tmp, sizeof(short),1,stdout);
+                //  tmp_ptr++;
+                //}
 		  
             }
             else
