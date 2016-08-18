@@ -1,3 +1,6 @@
+#
+# This file is used on other linuxes than raspberry.
+#
 cmake_minimum_required(VERSION 2.4)
 PROJECT(ttune)
 #SET (CMAKE_BUILD_TYPE Release)
@@ -12,7 +15,7 @@ ADD_DEFINITIONS(-D WIN32 )
 set(CMAKE_CXX_FLAGS "-g -Wall -std=c++11 -static-libstdc++")
 ELSE(WIN32)
 set(CMAKE_CXX_FLAGS "-g -Wall -std=c++11")
-set(CMAKE_C_FLAGS "-std=gnu99  -fpermissive")
+set(CMAKE_C_FLAGS "-std=gnu99  -fpermissive -DUSE_FFTW")
 #set(CMAKE_C_FLAGS "-std=gnu99 -mfloat-abi=hard -mcpu=arm1176jzf-s -mfpu=vfp -funsafe-math-optimizations -Wformat=0 ")
 ENDIF(WIN32)
 
@@ -20,6 +23,7 @@ ENDIF(WIN32)
 INCLUDE_DIRECTORIES(
 acarsdec-3.2/acars.c
 csdr
+bcm-stub
 )
 
 SET (LIBRARY_TYPE STATIC)
@@ -56,6 +60,7 @@ acarsdec-3.2/syndrom.h
 
 ADD_EXECUTABLE(ttune
 main.c
+bcm-stub/bcm2835.c
 )
 
 ADD_EXECUTABLE(acarserv
@@ -64,7 +69,7 @@ acarsdec-3.2/dbmgn.c
 )
 
 
-TARGET_LINK_LIBRARIES(ttune csdr)
+TARGET_LINK_LIBRARIES(ttune csdr asound m)
 
 TARGET_LINK_LIBRARIES(acarsdec sqlite3 pthread m)
 

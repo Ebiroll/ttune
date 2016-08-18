@@ -37,12 +37,57 @@
 #include <stdlib.h>
 #include <bcm2835.h>
 #include "alsa/asoundlib.h"
+#include <math.h>
 
 #define NFRAMES 12000
 
 static char *device = "default";                        /* playback device */
 snd_output_t *output = NULL;
 unsigned char buffer[2*NFRAMES + 3];                          /* some random data */
+
+#define SAMPLING_RATE 48000
+
+void generate_freq(int *buffer, size_t count, float volume, float freq)
+{
+  size_t pos; // sample number we're on
+
+  for (pos = 0; pos < count; pos++) {
+    float a = 2 * 3.14159f * freq * pos / SAMPLING_RATE;
+    float v = sin(a) * volume;
+    // convert from [-1.0,1.0] to [-32767,32767]:
+    //buffer[pos] = remap_level_to_signed_16_bit(v);
+  }
+}
+
+
+void sweep(double f_start, double f_end, double interval, int n_steps) {
+
+    size_t pos; // sample number we're on
+
+    int freq=100;
+    for (pos = 0; pos < n_steps; pos++) {
+      float a = 2 * M_PI * freq * pos / 48000;
+      float v = sin(a);
+      fwrite (&v,	sizeof(float),1, stdout);
+    }
+
+
+#if 0
+    for (int i = 0; i < n_steps; ++i) {
+        double delta = i / (float)n_steps;
+        double t = interval * delta;
+        double phase = 2 * M_PI * t * (f_start + (f_end - f_start) * delta / 2);
+        while (phase > 2 * M_PI)
+        {
+            phase -= 2 * M_PI; // optional
+            float tmp=sin(phase);
+            fwrite (&tmp,	sizeof(float),1, stdout);
+            //printf("%f\n", sin(phase));
+        }
+        //printf("%f %f %f", t, phase * 180 / PI, 3 * sin(phase));
+    }
+#endif
+}
 
 /*
  * 
@@ -58,6 +103,9 @@ int main(int argc, char** argv) {
     char *ArgStr;
     char AM, WB, HF;
     int EmitSound = 0;
+    int StdOutSound = 0;
+    int TestSound = 0;
+
     int err;
     int Debug = 0;
     unsigned char ControlByte;
@@ -86,8 +134,10 @@ int main(int argc, char** argv) {
                     if (ArgStr[CharNum] == 'n') {WB = 0; AM = 0;}
                     if (ArgStr[CharNum] == 'h') {HF = 1;}
                     if (ArgStr[CharNum] == 's') {EmitSound = 1;}
+                    if (ArgStr[CharNum] == 'o') {StdOutSound = 1;}
                     if (ArgStr[CharNum] == 'd') {Debug = 1;}
                     if (ArgStr[CharNum] == 'r') {DisplayRSSI = 1;}
+                    if (ArgStr[CharNum] == 't') {TestSound = 1;}
                 }
             }
             else
@@ -107,6 +157,8 @@ int main(int argc, char** argv) {
         printf("    -h   Use HF antenna and up-converter\n");
         printf("    -v   Use VHF/UHF antenna (default)\n");
         printf("    -s   Emit sound on playback channel (Ctrl-C to exit)\n");
+        printf("    -o   Output to stdout float value of sound (Ctrl-C to exit)\n");
+        printf("    -t   Output Sweep from 10 to 10kHz\n");
         printf("\n");
         return (EXIT_SUCCESS);
      }
@@ -129,6 +181,12 @@ int main(int argc, char** argv) {
     bcm2835_spi_transfern(Buf, 5);    
     printf("Firmware version is %d.%02d\n", Buf[3], Buf[4]);
     
+    if (TestSound) {
+        sweep(440,10000,60,48000*60);
+        exit(0);
+    }
+
+
     if (FreqInHz > 0)
     {
         printf("Tuning to %d kHz\n", FreqInHz);
@@ -156,7 +214,8 @@ int main(int argc, char** argv) {
         bcm2835_spi_transfern(Buf, 8);
     }
     
-    if (EmitSound)
+
+    if (EmitSound || StdOutSound)
     {
         printf("Playback enabled: Ctrl-C to exit\n");
         if ((err = snd_pcm_open(&handle, device, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
