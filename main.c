@@ -62,6 +62,7 @@ void generate_freq(int *buffer, size_t count, float volume, float freq)
 
 void sweep(double f_start, double f_end, double interval, int n_steps) {
 
+
     size_t pos; // sample number we're on
 
     int freq=440;
@@ -73,8 +74,9 @@ void sweep(double f_start, double f_end, double interval, int n_steps) {
       fwrite (&tmp_shrt,	sizeof(short),1, stdout);
     }
 
-
 #if 0
+
+
     for (int i = 0; i < n_steps; ++i) {
         double delta = i / (float)n_steps;
         double t = interval * delta;
@@ -84,6 +86,8 @@ void sweep(double f_start, double f_end, double interval, int n_steps) {
             phase -= 2 * M_PI; // optional
             float tmp=sin(phase);
             fwrite (&tmp,	sizeof(float),1, stdout);
+            short tmp_shrt=10*tmp;
+            fwrite (&tmp_shrt,	sizeof(short),1, stdout);
             //printf("%f\n", sin(phase));
         }
         //printf("%f %f %f", t, phase * 180 / PI, 3 * sin(phase));
@@ -184,7 +188,7 @@ int main(int argc, char** argv) {
     printf("Firmware version is %d.%02d\n", Buf[3], Buf[4]);
     
     if (TestSound) {
-        sweep(440,10000,60,48000*60);
+        sweep(440,1000,60,48000*60);
         exit(0);
     }
 
@@ -220,11 +224,13 @@ int main(int argc, char** argv) {
     if (EmitSound || StdOutSound)
     {
         printf("Playback enabled: Ctrl-C to exit\n");
-        if ((err = snd_pcm_open(&handle, device, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
-                printf("Playback open error: %s\n", snd_strerror(err));
-                exit(EXIT_FAILURE);
-        }
-        if ((err = snd_pcm_set_params(handle,
+	if (EmitSound) 
+        {
+	  if ((err = snd_pcm_open(&handle, device, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+	    printf("Playback open error: %s\n", snd_strerror(err));
+	    exit(EXIT_FAILURE);
+	  }
+	  if ((err = snd_pcm_set_params(handle,
                                       SND_PCM_FORMAT_S16_LE,
                                       SND_PCM_ACCESS_RW_INTERLEAVED,
                                       1,
@@ -233,7 +239,8 @@ int main(int argc, char** argv) {
                                       250000)) < 0) {   /* 0.5sec */
                 printf("Playback open error: %s\n", snd_strerror(err));
                 exit(EXIT_FAILURE);
-        }
+	  }
+	}
         Buf[0] = 0x00;  // write
         Buf[1] = 0x00;  // addr hi
         Buf[2] = 0x56;  // addr lo
@@ -267,11 +274,17 @@ int main(int argc, char** argv) {
             bcm2835_spi_transfern(buffer, sizeof(buffer));
             if (StdOutSound) {
                 short *tmp_ptr=(short *) buffer+3;
+		fwrite (tmp_ptr, sizeof(short),NFRAMES,stdout);
                 //float tmp=(float) *tmp_ptr;
                 //fwrite (&tmp,	sizeof(float),1, stdout);
                 // Test s16
-                fwrite (tmp_ptr,	sizeof(short),1, stdout);
-
+		//short tmp=*tmp_ptr;
+		//for(int q=0;q< NFRAMES;q++) {
+		//  tmp=*tmp_ptr;
+		//  fwrite (&tmp, sizeof(short),1,stdout);
+		//  tmp_ptr++;
+		//}
+		  
             }
             else
             {
