@@ -1,1 +1,2 @@
 ./ttune -t | ./csdr  convert_f_s16  | aplay  -c 2 -f S16_LE -r 48000
+./ttune -t |  ffplay -i - -f s16le 

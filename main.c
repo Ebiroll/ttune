@@ -64,11 +64,13 @@ void sweep(double f_start, double f_end, double interval, int n_steps) {
 
     size_t pos; // sample number we're on
 
-    int freq=100;
+    int freq=440;
     for (pos = 0; pos < n_steps; pos++) {
-      float a = 2 * M_PI * freq * pos / 48000;
+      float a = 2 * M_PI * freq * pos / 44100;
       float v = sin(a);
-      fwrite (&v,	sizeof(float),1, stdout);
+      //fwrite (&v,	sizeof(float),1, stdout);
+      short tmp_shrt=10*v;
+      fwrite (&tmp_shrt,	sizeof(short),1, stdout);
     }
 
 
