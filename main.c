@@ -263,6 +263,16 @@ int main(int argc, char** argv) {
             buffer[1] = 0x00;  // addr hi
             buffer[2] = 0x50;  // addr lo
             bcm2835_spi_transfern(buffer, sizeof(buffer));
+            if (StdOutSound) {
+                short *tmp_ptr=(short *) buffer+3;
+                //float tmp=(float) *tmp_ptr;
+                //fwrite (&tmp,	sizeof(float),1, stdout);
+                // Test s16
+                fwrite (tmp_ptr,	sizeof(short),1, stdout);
+
+            }
+            else
+            {
                 frames = snd_pcm_writei(handle, buffer+3, NFRAMES);
                 if (frames < 0)
                         frames = snd_pcm_recover(handle, frames, 0);
@@ -272,7 +282,7 @@ int main(int argc, char** argv) {
                 }
                 if (frames > 0 && frames < NFRAMES)
                         printf("Short write (expected %li, wrote %li)\n", NFRAMES, frames);
-            
+            }
         }
         snd_pcm_close(handle);
         
