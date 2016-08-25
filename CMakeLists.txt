@@ -21,10 +21,47 @@ ENDIF(WIN32)
 
 
 INCLUDE_DIRECTORIES(
-acarsdec-3.2/acars.c
+acarsdec-3.2
 csdr
 bcm-stub
 )
+
+#Use openVG simulator shivavg
+SET(shiva_SRC
+openvg/shivavg/shgl.h
+openvg/shivavg/shDefs.h
+openvg/shivavg/shExtensions.h
+openvg/shivavg/shArrayBase.h
+openvg/shivavg/shArrays.h
+openvg/shivavg/shVectors.h
+openvg/shivavg/shPath.h
+openvg/shivavg/shImage.h
+openvg/shivavg/shPaint.h
+openvg/shivavg/shGeometry.h
+openvg/shivavg/shContext.h
+openvg/shivavg/shExtensions.c
+openvg/shivavg/shArrays.c
+openvg/shivavg/shVectors.c
+openvg/shivavg/shPath.c
+openvg/shivavg/shImage.c
+openvg/shivavg/shPaint.c
+openvg/shivavg/shGeometry.c
+openvg/shivavg/shPipeline.c
+openvg/shivavg/shParams.c
+openvg/shivavg/shContext.c
+openvg/shivavg/shVgu.c)
+
+
+
+ADD_EXECUTABLE(ttunevg
+openvg/libshapes.c
+openvg/shivavg/glw.c
+ttunevg.cpp
+openvg/shivavg/VG/openvg.h
+openvg/shivavg/VG/vgu.h
+${shiva_SRC}
+)
+
 
 SET (LIBRARY_TYPE STATIC)
 
@@ -59,7 +96,8 @@ acarsdec-3.2/syndrom.h
 )
 
 ADD_EXECUTABLE(ttune
-main.c
+#main.c
+ttune.cpp
 bcm-stub/bcm2835.c
 )
 

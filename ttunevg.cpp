@@ -22,7 +22,7 @@
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
- * File:   main.c
+ * File:   ttune.c
  * Author: Keith Frewin
  *
  * Created on 13 October 2015, 14:22
@@ -30,7 +30,8 @@
  * Version History
  * dd/mm/yyyy vers comments
  * 15/04/2016 1.04 Initial release
- *  
+ * Checks keyboard 
+ *
  */
 
 #include <stdio.h>
@@ -38,6 +39,11 @@
 #include <bcm2835.h>
 #include "alsa/asoundlib.h"
 #include <math.h>
+
+// Keyboard hit check
+#include <sys/select.h>
+#include <termios.h>
+#include <sys/ioctl.h>
 
 #define NFRAMES 12000
 
@@ -57,6 +63,26 @@ void generate_freq(int *buffer, size_t count, float volume, float freq)
     // convert from [-1.0,1.0] to [-32767,32767]:
     //buffer[pos] = remap_level_to_signed_16_bit(v);
   }
+}
+
+// Returns true if keyboard was hit
+int _kbhit() {
+    static const int STDIN = 0;
+    static bool initialized = false;
+
+    if (! initialized) {
+        // Use termios to turn off line buffering
+        termios term;
+        tcgetattr(STDIN, &term);
+        term.c_lflag &= ~ICANON;
+        tcsetattr(STDIN, TCSANOW, &term);
+        setbuf(stdin, NULL);
+        initialized = true;
+    }
+
+    int bytesWaiting;
+    ioctl(STDIN, FIONREAD, &bytesWaiting);
+    return bytesWaiting;
 }
 
 
@@ -87,13 +113,32 @@ void sweep(double f_start, double f_end, double interval, int n_steps) {
             float tmp=sin(phase);
             // Float out
             fwrite (&tmp,	sizeof(float),1, stdout);
-            short tmp_shrt=32000*tmp;
+            //short tmp_shrt=32000*tmp;
             //fwrite (&tmp_shrt,	sizeof(short),1, stdout);
             //printf("%f\n", sin(phase));
         }
         //printf("%f %f %f", t, phase * 180 / PI, 3 * sin(phase));
     }
 }
+
+
+//
+
+short triangle=0;
+short tridelta=300;
+
+ //Generate  NFRAMES of triangle wave sweep, increase frequency for each call
+void short_sweep(short *data) {
+    tridelta++;
+    for (int i = 0; i < NFRAMES; ++i) {
+        *data=triangle;
+        triangle+=tridelta;
+        *data=*data/2;
+        data++;
+    }
+}
+
+
 
 /*
  * 
@@ -186,7 +231,7 @@ int main(int argc, char** argv) {
     bcm2835_spi_transfern(Buf, 5);    
     if (Debug) printf("Firmware version is %d.%02d\n", Buf[3], Buf[4]);
     
-    if (TestSound) {
+    if (TestSound && !EmitSound) {
         sweep(10,10000,60,48000*60);
         sweep(10000,10,60,48000*60);
         exit(0);
@@ -275,13 +320,19 @@ int main(int argc, char** argv) {
             buffer[0] = 0x01;  // read
             buffer[1] = 0x00;  // addr hi
             buffer[2] = 0x50;  // addr lo
-            bcm2835_spi_transfern(buffer, sizeof(buffer));
+            bcm2835_spi_transfern((char *)buffer, sizeof(buffer));
+            // Generate testsound for output
+            if (TestSound) {
+               unsigned char *silly= buffer;
+               short_sweep((short *)(buffer));
+            }
+
             if (StdOutSound) {
                 unsigned char *silly= buffer+3;
-                short *tmp_ptr=(short *) silly;
-                fwrite (tmp_ptr, sizeof(short),NFRAMES,stdout);
-                //float tmp=(float) *tmp_ptr;
-                //fwrite (&tmp,	sizeof(float),1, stdout);
+                //short *tmp_ptr=(short *) silly;
+                //fwrite (tmp_ptr, sizeof(short),NFRAMES,stdout);
+                float tmp=(float) *silly;
+                fwrite (&tmp,	sizeof(float),1, stdout);
                 // Test s16
                 //short tmp=*tmp_ptr;
                 //for(int q=0;q< NFRAMES;q++) {
@@ -293,7 +344,8 @@ int main(int argc, char** argv) {
             }
             else
             {
-                frames = snd_pcm_writei(handle, buffer+3, NFRAMES);
+                //frames = snd_pcm_writei(handle, buffer+3, NFRAMES);
+                frames = snd_pcm_writei(handle, buffer, NFRAMES);
                 if (frames < 0)
                         frames = snd_pcm_recover(handle, frames, 0);
                 if (frames < 0) {
@@ -303,7 +355,37 @@ int main(int argc, char** argv) {
                 if (frames > 0 && frames < NFRAMES)
                         printf("Short write (expected %li, wrote %li)\n", NFRAMES, frames);
             }
+
+	    // Check keyboard
+	    if (_kbhit())
+        {
+            char c=getchar();
+
+            switch(c)
+              {
+            case 'o':
+              tridelta-=30;
+              //printf("p-pressed\n");
+              // Increase freqeuncy
+              break;
+
+              case 'p':
+                tridelta+=30;
+                //printf("p-pressed\n");
+                // Increase freqeuncy
+                break;
+
+              default:
+                break;
+              }
+          }
+        else
+        {
+            printf(".");
         }
+
+        }
+
         snd_pcm_close(handle);
         
     }
