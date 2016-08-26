@@ -45,7 +45,8 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-#define NFRAMES 12000
+//#define NFRAMES 12000
+#define NFRAMES 16384
 
 static char *device = "default";                        /* playback device */
 snd_output_t *output = NULL;
@@ -323,29 +324,27 @@ int main(int argc, char** argv) {
             bcm2835_spi_transfern((char *)buffer, sizeof(buffer));
             // Generate testsound for output
             if (TestSound) {
-               unsigned char *silly= buffer;
-               short_sweep((short *)(buffer));
+               unsigned char *silly= buffer +3;
+               short_sweep((short *)(silly));
             }
 
             if (StdOutSound) {
                 unsigned char *silly= buffer+3;
-                //short *tmp_ptr=(short *) silly;
+                short *tmp_ptr=(short *) silly;
                 //fwrite (tmp_ptr, sizeof(short),NFRAMES,stdout);
-                float tmp=(float) *silly;
-                fwrite (&tmp,	sizeof(float),1, stdout);
-                // Test s16
-                //short tmp=*tmp_ptr;
-                //for(int q=0;q< NFRAMES;q++) {
-                //  tmp=*tmp_ptr;
-                //  fwrite (&tmp, sizeof(short),1,stdout);
-                //  tmp_ptr++;
-                //}
+   
+                for(int q=0;q< NFRAMES;q++) {
+                  float tmp=(float) *silly;
+                  tmp=*tmp_ptr;
+                  fwrite (&tmp,	sizeof(float),1, stdout);
+                  tmp_ptr++;
+                }
 		  
             }
             else
             {
-                //frames = snd_pcm_writei(handle, buffer+3, NFRAMES);
-                frames = snd_pcm_writei(handle, buffer, NFRAMES);
+                unsigned char *silly= buffer+3;
+                frames = snd_pcm_writei(handle, silly, NFRAMES);
                 if (frames < 0)
                         frames = snd_pcm_recover(handle, frames, 0);
                 if (frames < 0) {
@@ -357,6 +356,7 @@ int main(int argc, char** argv) {
             }
 
 	    // Check keyboard
+
 	    if (_kbhit())
         {
             char c=getchar();
@@ -381,7 +381,7 @@ int main(int argc, char** argv) {
           }
         else
         {
-            printf(".");
+	  //printf(".");
         }
 
         }

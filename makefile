@@ -44,13 +44,44 @@ PARAMS_SO = -fpic
 PARAMS_MISC = -Wno-unused-result
 FFTW_PACKAGE = fftw-3.3.3
 
-all: clean-vect
+
+### These are for the openvg part shapes.h library
+
+INCLUDEFLAGS=-I/opt/vc/include -I/opt/vc/include/interface/vmcs_host/linux -I/opt/vc/include/interface/vcos/pthreads -fPIC
+LIBFLAGS=-L/opt/vc/lib -lEGL -lGLESv2 -ljpeg
+FONTLIB=/usr/share/fonts/truetype/ttf-dejavu
+FONTFILES=DejaVuSans.inc  DejaVuSansMono.inc DejaVuSerif.inc
+
+# clean-vect 
+
+all:	library	ttunevg 
 	@echo NOTE: you may have to manually edit Makefile to optimize for your CPU \(especially if you compile on ARM, please edit PARAMS_NEON\).
 	@echo Auto-detected optimization parameters: $(PARAMS_SIMD)
 	@echo
 	gcc -std=gnu99 $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(LIBSOURCES) $(PARAMS_LIBS) $(PARAMS_MISC) -fpic -shared -o libcsdr.so
 	-./csdr/parsevect dumpvect*.vect
 	gcc -std=gnu99 $(PARAMS_LOOPVECT) $(PARAMS_SIMD) csdr/csdr.c $(PARAMS_LIBS) -L. -lcsdr $(PARAMS_MISC) -o csdr.bin
+libshapes.o:	libshapes.c shapes.h fontinfo.h
+	gcc -O2 -Wall $(INCLUDEFLAGS) -c libshapes.c
+
+
+oglinit.o:	oglinit.c
+	gcc -O2 -Wall $(INCLUDEFLAGS) -c oglinit.c
+
+
+fonts:	$(FONTFILES)
+
+library: oglinit.o libshapes.o
+	gcc $(LIBFLAGS) -shared -o libshapes.so oglinit.o libshapes.o
+
+ttunevg.o:  ttunevg.cpp
+	g++ -g -Wall $(INCLUDEFLAGS) -fpermissive  -c ttunevg.cpp -o ttunevg.o
+
+ttunevg:  ttunevg.o 
+	g++ -g -Wall $(INCLUDEFLAGS) ttunevg.o $(LIBFLAGS)  -lbcm2835  -lasound  -o ttunevg
+
+#########
+
 arm-cross: clean-vect
 	#note: this doesn't work since having added FFTW
 	arm-linux-gnueabihf-gcc -std=gnu99 -O3 -fshort-double -ffast-math -dumpbase dumpvect-arm -fdump-tree-vect-details -mfloat-abi=softfp -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mvectorize-with-neon-quad -Wno-unused-result -Wformat=0 $(SOURCES) -lm -o ./csdr

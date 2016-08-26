@@ -2,3 +2,4 @@
 ./ttune -t |  ffplay -i - -f s16le 
 ./ttune -t |  aplay  -c 1 -f FLOAT_LE -r 48000
 ./ttune -t |  ffplay -i - -f s16le 
+sudo ./ttune  -w 103300 -o | csdr/csdr convert_s16_f |   csdr/csdr  squelch_and_smeter_cc --fifo nisse --outfifo kalle 512 512   |   aplay -c 1 -f FLOAT_LE -r 48000
