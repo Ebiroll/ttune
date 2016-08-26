@@ -392,7 +392,7 @@ int main(int argc, char** argv) {
 
     if (EmitSound || StdOutSound)
     {
-        fprintf(stderr,"Playback enabled: Ctrl-C to exit\n");
+        fprintf(stderr,"Playback enabled: q to quit, Ctrl-C to exit\n");
 	if (EmitSound) 
         {
 	  if ((err = snd_pcm_open(&handle, device, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
@@ -416,7 +416,7 @@ int main(int argc, char** argv) {
         Buf[3] = 0x01;  // under sample factor
         Buf[4] = 0x80;  // audio mode = enable
         bcm2835_spi_transfern(Buf, 5);
-        while(1) {
+        while(EmitSound || StdOutSound) {
             if (DisplayRSSI)
             {
                 Buf[0] = 0x01;  // read
@@ -493,8 +493,14 @@ int main(int argc, char** argv) {
                 //printf("p-pressed\n");
                 // Increase freqeuncy
                 break;
-
+               case 'q':
+               case 'Q':
+                EmitSound=0;
+                StdOutSound=0;
+                break;
               default:
+                printf("pressed %d\n",c);
+
                 break;
               }
           }
@@ -514,6 +520,7 @@ int main(int argc, char** argv) {
     if (Debug) printf("calling bcm2835_close()\n");
     bcm2835_close();
     if (Debug) printf("Done\n");
+    finish();
     
     return (EXIT_SUCCESS);
 }
