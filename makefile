@@ -48,21 +48,22 @@ FFTW_PACKAGE = fftw-3.3.3
 ### These are for the openvg part shapes.h library
 
 INCLUDEFLAGS=-I/opt/vc/include -I/opt/vc/include/interface/vmcs_host/linux -I/opt/vc/include/interface/vcos/pthreads -fPIC
-LIBFLAGS=-L/opt/vc/lib -lEGL -lGLESv2 -ljpeg
+LIBFLAGS=-L/opt/vc/lib  -lEGL -lGLESv2 -lbcm_host -ljpeg
+# 
 FONTLIB=/usr/share/fonts/truetype/ttf-dejavu
 FONTFILES=DejaVuSans.inc  DejaVuSansMono.inc DejaVuSerif.inc
 
-# clean-vect 
+# clean-vect library
 
-all:	library	ttunevg 
+all:	ttunevg 
 	@echo NOTE: you may have to manually edit Makefile to optimize for your CPU \(especially if you compile on ARM, please edit PARAMS_NEON\).
 	@echo Auto-detected optimization parameters: $(PARAMS_SIMD)
 	@echo
-	gcc -std=gnu99 $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(LIBSOURCES) $(PARAMS_LIBS) $(PARAMS_MISC) -fpic -shared -o libcsdr.so
-	-./csdr/parsevect dumpvect*.vect
-	gcc -std=gnu99 $(PARAMS_LOOPVECT) $(PARAMS_SIMD) csdr/csdr.c $(PARAMS_LIBS) -L. -lcsdr $(PARAMS_MISC) -o csdr.bin
+	#gcc -std=gnu99 $(PARAMS_LOOPVECT) $(PARAMS_SIMD) $(LIBSOURCES) $(PARAMS_LIBS) $(PARAMS_MISC) -fpic -shared -o libcsdr.so
+	#-./csdr/parsevect dumpvect*.vect
+	#gcc -std=gnu99 $(PARAMS_LOOPVECT) $(PARAMS_SIMD) csdr/csdr.c $(PARAMS_LIBS) -L. -lcsdr $(PARAMS_MISC) -o csdr.bin
 libshapes.o:	libshapes.c shapes.h fontinfo.h
-	gcc -O2 -Wall $(INCLUDEFLAGS) -c libshapes.c
+	#gcc -O2 -Wall $(INCLUDEFLAGS) -c libshapes.c
 
 
 oglinit.o:	oglinit.c
@@ -78,7 +79,7 @@ ttunevg.o:  ttunevg.cpp
 	g++ -g -Wall $(INCLUDEFLAGS) -fpermissive  -c ttunevg.cpp -o ttunevg.o
 
 ttunevg:  ttunevg.o 
-	g++ -g -Wall $(INCLUDEFLAGS) ttunevg.o $(LIBFLAGS)  -lbcm2835  -lasound  -o ttunevg
+	g++ -g -Wall $(INCLUDEFLAGS) $(LIBFLAGS) ttunevg.o oglinit.o libshapes.o $(PARAMS_LIBS) $(PARAMS_MISC)  -fpic -lfftw3  -lbcm2835  -lasound  -lpthread -o ttunevg
 
 #########
 

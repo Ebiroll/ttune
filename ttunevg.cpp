@@ -92,16 +92,10 @@ int last_thread_ix=-1;
 
 void* thread_function(void *idx)
 {
-    for(int qk=0;qk<100;qk++)
-    {
-        printf(".");
-    }
-    printf("fftw_execute %d\n",idx);
     int *i=(int *)idx;
+    printf("fftw_execute %d\n",*i);
     fftw_execute(thread_data[*i].plan);
 
-    //char *a = malloc(10);
-    //strcpy(a,"hello world");
     pthread_exit((void *)idx);
 }
 
@@ -126,6 +120,7 @@ int start_fft_thread(int ix)
     pthread_create (&thread_id, NULL,&thread_function, &thread_data[ix].index);
 
 }
+
 
 int join_fft_thread()
 {
@@ -251,6 +246,20 @@ void drawOpenVG() {
 
     End();
 }
+
+void retune() {
+        char Buf[64];
+        Buf[0] = 0x00;  // write
+        Buf[1] = 0x0;  // addr hi for tuning
+        Buf[2] = 0xf0;  // addr lo for tuning
+        Buf[3] = FreqInHz & 0xff;  // RF frequency - low byte
+        Buf[4] = (FreqInHz >> 8) & 0xff;
+        Buf[5] = (FreqInHz >> 16) & 0xff;
+        Buf[6] = (FreqInHz >> 24) & 0xff;  // high byte
+        Buf[7] = 0xa0;      // command to retune
+        bcm2835_spi_transfern(Buf, 8);
+}
+
 
 /*
  * 
@@ -474,6 +483,13 @@ int main(int argc, char** argv) {
                         printf("Short write (expected %li, wrote %li)\n", NFRAMES, frames);
             }
 
+	    // Join thread
+	    if (last_thread_ix!=-1) {
+	      join_fft_thread();
+	    }
+	    last_thread_ix++;
+	    start_fft_thread(last_thread_ix%4);
+
 	    // Check keyboard
 
 	    if (_kbhit())
@@ -482,6 +498,15 @@ int main(int argc, char** argv) {
 
             switch(c)
               {
+	      case 't':
+		FreqInHz+=50;
+		retune();
+		break;
+	      case 'T':
+		FreqInHz-=50;
+		retune();
+		break;
+
             case 'o':
               tridelta-=30;
               //printf("p-pressed\n");
