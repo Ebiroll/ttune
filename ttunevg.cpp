@@ -1,7 +1,7 @@
 /*
- * ttune
+ * ttunevg
  *
- * Trilby HAT Tuning Utility 
+ * Trilby HAT Tuning Utility , with openvg support
  *
  * Copyright (c) 2015-2016 Kinetic Avionics Ltd
  * www.kinetic.co.uk
@@ -23,14 +23,14 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
  * File:   ttune.c
- * Author: Keith Frewin
+ * Author: Keith Frewin, Olof Astrand
  *
  * Created on 13 October 2015, 14:22
  * 
  * Version History
  * dd/mm/yyyy vers comments
  * 15/04/2016 1.04 Initial release
- * Checks keyboard 
+ * 15/04/2016 OpenVG support, Checks keyboard
  *
  */
 
@@ -44,6 +44,7 @@
 #include <sys/select.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include "shapes.h"
 
 //#define NFRAMES 12000
 #define NFRAMES 16384
@@ -53,6 +54,92 @@ snd_output_t *output = NULL;
 unsigned char buffer[2*NFRAMES + 3];                          /* some random data */
 
 #define SAMPLING_RATE 48000
+
+#include<stdio.h>
+#include<pthread.h>
+#include<stdlib.h>
+#include "ttunevg.h"
+
+/* Example thread */
+#if 0
+// Simple example
+{
+    fftw_complex *in, *out;
+    fftw_plan p;
+    ...
+    in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
+    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
+    p = fftw_plan_dft_1d(N, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+    ...
+    fftw_execute(p); /* repeat as needed */
+    ...
+    fftw_destroy_plan(p);
+    fftw_free(in); fftw_free(out);
+}
+#endif
+
+    /* Layout
+      Text                     WTF_WIDTH  */
+
+#define  WTF_WIDTH  512
+
+
+pthread_t thread_id;
+
+fft_holder thread_data[MAX_T];
+
+int last_thread_ix=-1;
+
+void* thread_function(void *idx)
+{
+    for(int qk=0;qk<100;qk++)
+    {
+        printf(".");
+    }
+    printf("fftw_execute %d\n",idx);
+    int *i=(int *)idx;
+    fftw_execute(thread_data[*i].plan);
+
+    //char *a = malloc(10);
+    //strcpy(a,"hello world");
+    pthread_exit((void *)idx);
+}
+
+void init_fft() {
+
+    for (int j=0;j<MAX_T;j++)
+    {
+
+        thread_data[j].index=j;
+        thread_data[j].N_samples=NFRAMES;
+        // Only need N/2 values for output?
+        thread_data[j].output= (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * thread_data[j].N_samples);
+        thread_data[j].windowed_input= (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * thread_data[j].N_samples);
+        thread_data[j].plan=fftw_plan_dft_1d(thread_data[j].N_samples, thread_data[j].windowed_input, thread_data[j].output, FFTW_FORWARD, FFTW_ESTIMATE);
+    }
+}
+
+
+int start_fft_thread(int ix)
+{
+
+    pthread_create (&thread_id, NULL,&thread_function, &thread_data[ix].index);
+
+}
+
+int join_fft_thread()
+{
+    int b;
+
+    pthread_join(thread_id,(void **)&b);  //here we are reciving one pointer
+
+    printf("b is %d\n",b);
+
+}
+
+
+/* To here */
+
 
 void generate_freq(int *buffer, size_t count, float volume, float freq)
 {
@@ -140,20 +227,42 @@ void short_sweep(short *data) {
 }
 
 
+int width,height;
+
+char AM, WB, HF;
+
+unsigned long FreqInHz;
+
+
+void drawOpenVG() {
+    char Buffer[128];
+    Start(width, height);				   // Start the picture
+    Background(0, 0, 0);				   // Black background
+    Fill(44, 77, 232, 1);				   // Big blue marble
+    Roundrect(0,0,width-WTF_WIDTH, height,20,20);		   // The "world"
+    Fill(255, 255, 255, 1);				   // White text
+    Text(20, height -20 , "ttunevg", SerifTypeface, 20);	// Info
+    if (AM) {
+         sprintf(Buffer,"%d kHz AM %s", FreqInHz, WB ? " wide" : "");
+    } else {
+        sprintf(Buffer,"%d kHz FM %s", FreqInHz, WB ? " wide" : "");
+    }
+    Text(20, height -60 ,Buffer, SerifTypeface, 20);	// Info
+
+    End();
+}
 
 /*
  * 
  */
 int main(int argc, char** argv) {
     int i;
-    unsigned long FreqInHz;
     char Buf[100];
     uint8_t Result;
     char RegNum[10];
     int ArgNum;
     int CharNum;
     char *ArgStr;
-    char AM, WB, HF;
     int EmitSound = 0;
     int StdOutSound = 0;
     int TestSound = 0;
@@ -218,6 +327,16 @@ int main(int argc, char** argv) {
     else ControlByte = 0x00;
     if (HF) ControlByte |= 0x04;
         
+    /// Initialise openvg and create fft thread
+    ///
+    init_fft();
+
+    init(&width, &height);				   // Graphics initialization
+
+    ///
+
+
+
     if (!bcm2835_init())
         return 1;
     if (Debug) printf("bcm2835_init() returned OK\n");
@@ -343,8 +462,8 @@ int main(int argc, char** argv) {
             }
             else
             {
-                unsigned char *silly= buffer+3;
-                frames = snd_pcm_writei(handle, silly, NFRAMES);
+                unsigned char *charp= buffer+3;
+                frames = snd_pcm_writei(handle, charp, NFRAMES);
                 if (frames < 0)
                         frames = snd_pcm_recover(handle, frames, 0);
                 if (frames < 0) {
@@ -383,6 +502,8 @@ int main(int argc, char** argv) {
         {
 	  //printf(".");
         }
+        drawOpenVG();
+
 
         }
 

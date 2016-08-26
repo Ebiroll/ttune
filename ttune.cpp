@@ -329,23 +329,21 @@ int main(int argc, char** argv) {
 
             if (StdOutSound) {
                 unsigned char *silly= buffer+3;
-                //short *tmp_ptr=(short *) silly;
+                short *tmp_ptr=(short *) silly;
                 //fwrite (tmp_ptr, sizeof(short),NFRAMES,stdout);
-                float tmp=(float) *silly;
-                fwrite (&tmp,	sizeof(float),1, stdout);
-                // Test s16
-                //short tmp=*tmp_ptr;
-                //for(int q=0;q< NFRAMES;q++) {
-                //  tmp=*tmp_ptr;
-                //  fwrite (&tmp, sizeof(short),1,stdout);
-                //  tmp_ptr++;
-                //}
-		  
+
+                for(int q=0;q< NFRAMES;q++) {
+                  float tmp=(float) *silly;
+                  tmp=*tmp_ptr;
+                  fwrite (&tmp,	sizeof(float),1, stdout);
+                  tmp_ptr++;
+
+                }
             }
             else
             {
-                //frames = snd_pcm_writei(handle, buffer+3, NFRAMES);
-                frames = snd_pcm_writei(handle, buffer, NFRAMES);
+                unsigned char *charp= buffer+3;
+                frames = snd_pcm_writei(handle, charp, NFRAMES);
                 if (frames < 0)
                         frames = snd_pcm_recover(handle, frames, 0);
                 if (frames < 0) {

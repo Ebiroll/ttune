@@ -7,7 +7,7 @@ PROJECT(ttune)
 SET (CMAKE_BUILD_TYPE Debug)
 
 
-ADD_DEFINITIONS(-D WITH_TRILBY )
+ADD_DEFINITIONS(-D WITH_TRILBY -DUSE_FFTW -DCMAKE_BUILD )
 
 
 IF(WIN32)
@@ -24,6 +24,8 @@ INCLUDE_DIRECTORIES(
 acarsdec-3.2
 csdr
 bcm-stub
+openvg
+openvg/shivavg
 )
 
 #Use openVG simulator shivavg
@@ -52,14 +54,14 @@ openvg/shivavg/shContext.c
 openvg/shivavg/shVgu.c)
 
 
-
 ADD_EXECUTABLE(ttunevg
 openvg/libshapes.c
-openvg/shivavg/glw.c
+${shiva_SRC}
+openvg/shivavg/glx.c
 ttunevg.cpp
 openvg/shivavg/VG/openvg.h
 openvg/shivavg/VG/vgu.h
-${shiva_SRC}
+bcm-stub/bcm2835.c
 )
 
 
@@ -96,7 +98,6 @@ acarsdec-3.2/syndrom.h
 )
 
 ADD_EXECUTABLE(ttune
-#main.c
 ttune.cpp
 bcm-stub/bcm2835.c
 )
@@ -108,6 +109,9 @@ acarsdec-3.2/dbmgn.c
 
 
 TARGET_LINK_LIBRARIES(ttune csdr asound m)
+
+TARGET_LINK_LIBRARIES(ttunevg fftw3 X11 GLU glut dl GL m jpeg pthread rt csdr asound m )
+
 
 TARGET_LINK_LIBRARIES(acarsdec sqlite3 pthread m)
 
