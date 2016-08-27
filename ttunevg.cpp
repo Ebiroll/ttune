@@ -97,15 +97,14 @@ void init_fft() {
 
     for (int j=0;j<MAX_T;j++)
     {
-
         thread_data[j].index=j;
         thread_data[j].N_samples=NFRAMES;
         // Only need N/2 values for output?
         thread_data[j].output= (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * thread_data[j].N_samples);
         thread_data[j].windowed_input= (double*) fftw_malloc(sizeof(double) * thread_data[j].N_samples);
-	// Maybe use, fftw_plan_dft_r2c_1d
+        // Maybe use, fftw_plan_dft_r2c_1d
         //thread_data[j].plan=fftw_plan_dft_1d(thread_data[j].N_samples, thread_data[j].windowed_input, thread_data[j].output, FFTW_FORWARD, FFTW_ESTIMATE);
-	thread_data[j].plan = fftw_plan_dft_r2c_1d(thread_data[j].N_samples, thread_data[j].windowed_input, thread_data[j].output, FFTW_ESTIMATE);
+        thread_data[j].plan = fftw_plan_dft_r2c_1d(thread_data[j].N_samples, thread_data[j].windowed_input, thread_data[j].output, FFTW_ESTIMATE);
     }
 }
 
@@ -134,8 +133,12 @@ void join_fft_thread()
     int line=last_thread_ix%WTF_HEIGHT;
     for (int j=0;j<WTF_WIDTH;j++)
     {
+		int freq = j*thread_data[last_thread_ix].N_samples / 2*WTF_WIDTH;
+		double *result = (double *) thread_data[last_thread_ix].output;
+		if (freq >= NFRAMES) freq = NFRAMES - 1;
+		float power = result[freq * 2] * result[freq * 2] + result[1 + freq * 2] * result[1 + freq * 2];
       // TODO, set output based on result
-      imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH+j)]=WGREEN(255);
+      imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH+j)]=WGREEN((int)power);
     }
 
     pthread_join(thread_id,(void **)&b);  //here we are reciving one pointer
