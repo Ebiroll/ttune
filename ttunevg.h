@@ -11,7 +11,8 @@
 */
 
 //#define NFRAMES 12000
-#define NFRAMES 16384
+//#define NFRAMES 16384
+#define NFRAMES 4096
 
 
 #define MAX_T 4
@@ -19,11 +20,11 @@
 struct fft_holder {
 
         int index;
-		//unsigned char buffer[2 * NFRAMES + 3];                          /* Buffer data for input */
+        //unsigned char buffer[2 * NFRAMES + 3];                          /* Buffer data for input */
 
         int N_samples;
 
-        fftw_complex *windowed_input;
+        double *windowed_input;
         fftw_complex *output;
 
         fftw_plan plan;

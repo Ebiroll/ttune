@@ -23,6 +23,7 @@ extern "C" {
 	extern void Circle(VGfloat, VGfloat, VGfloat);
 	extern void Arc(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat, VGfloat);
 	extern void Image(VGfloat, VGfloat, int, int, const char *);
+        extern void makeimage(VGfloat x, VGfloat y, int w, int h, VGubyte * data);
 	extern void Start(int, int);
 	extern void End();
 	extern void SaveEnd(const char *);

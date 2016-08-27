@@ -75,7 +75,7 @@ fonts:	$(FONTFILES)
 library: oglinit.o libshapes.o
 	gcc $(LIBFLAGS) -shared -o libshapes.so oglinit.o libshapes.o
 
-ttunevg.o:  ttunevg.cpp
+ttunevg.o:  ttunevg.cpp ttunevg.h
 	g++ -g -Wall $(INCLUDEFLAGS) -fpermissive  -c ttunevg.cpp -o ttunevg.o
 
 ttunevg:  ttunevg.o 

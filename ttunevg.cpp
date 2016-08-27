@@ -45,40 +45,31 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 #include "shapes.h"
-
-
-static char *device = "default";                        /* playback device */
-snd_output_t *output = NULL;
-
-#define SAMPLING_RATE 48000
-
 #include<stdio.h>
 #include<pthread.h>
 #include<stdlib.h>
 #include "ttunevg.h"
 
-/* Example thread */
-#if 0
-// Simple example
-{
-    fftw_complex *in, *out;
-    fftw_plan p;
-    ...
-    in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
-    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
-    p = fftw_plan_dft_1d(N, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-    ...
-    fftw_execute(p); /* repeat as needed */
-    ...
-    fftw_destroy_plan(p);
-    fftw_free(in); fftw_free(out);
-}
-#endif
+static const char *device = "default";                        /* playback device */
+snd_output_t *output = NULL;
+unsigned char buffer[2 * NFRAMES + 3];                          /* Buffer data for input */
 
-    /* Layout
-      Text                     WTF_WIDTH  */
+#define SAMPLING_RATE 48000
+
+#define WALPHA(x)  (x << 24)
+#define WBLUE(x)   (x << 16)
+#define WGREEN(x)  (x << 8)
+#define WRED(x)    (x)
+
+
+/* FFT thread */
 
 #define  WTF_WIDTH  512
+
+#define  WTF_HEIGHT  1024
+
+// 32 bit RGBA
+unsigned int imageData[WTF_WIDTH*WTF_HEIGHT];
 
 
 pthread_t thread_id;
@@ -90,13 +81,19 @@ int last_thread_ix=-1;
 void* thread_function(void *idx)
 {
     int *i=(int *)idx;
-    printf("fftw_execute %d\n",*i);
+    //printf("fftw_execute %d\n",*i);
     fftw_execute(thread_data[*i].plan);
 
     pthread_exit((void *)idx);
 }
 
+
 void init_fft() {
+
+    // Set waterfall image to red
+    for (int ii=0;ii<WTF_WIDTH*WTF_HEIGHT;ii++) {
+      imageData[ii]=WRED(100);
+    }
 
     for (int j=0;j<MAX_T;j++)
     {
@@ -105,29 +102,45 @@ void init_fft() {
         thread_data[j].N_samples=NFRAMES;
         // Only need N/2 values for output?
         thread_data[j].output= (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * thread_data[j].N_samples);
-        thread_data[j].windowed_input= (doublw*) fftw_malloc(sizeof(double) * thread_data[j].N_samples);
-		// Maybe use, fftw_plan_dft_r2c_1d
+        thread_data[j].windowed_input= (double*) fftw_malloc(sizeof(double) * thread_data[j].N_samples);
+	// Maybe use, fftw_plan_dft_r2c_1d
         //thread_data[j].plan=fftw_plan_dft_1d(thread_data[j].N_samples, thread_data[j].windowed_input, thread_data[j].output, FFTW_FORWARD, FFTW_ESTIMATE);
-		thread_data[j].plan = fftw_plan_dft_r2c_1d(thread_data[j].N_samples, thread_data[j].windowed_input, thread_data[j].output, FFTW_ESTIMATE);
+	thread_data[j].plan = fftw_plan_dft_r2c_1d(thread_data[j].N_samples, thread_data[j].windowed_input, thread_data[j].output, FFTW_ESTIMATE);
     }
 }
 
 
-int start_fft_thread(int ix)
+void start_fft_thread(int ix,char *buffer)
 {
+  // Copy data in main thread..
+  short *tmp_ptr=(short *) buffer;
+  double tmp;
+  for (int q=0;q<NFRAMES;q++) {
+    tmp=(double) *tmp_ptr;
+    tmp_ptr++;
+    // TODO add windowing function
+    thread_data[ix].windowed_input[q]=tmp;
+  }
 
-    pthread_create (&thread_id, NULL,&thread_function, &thread_data[ix].index);
+  pthread_create (&thread_id, NULL,&thread_function, &thread_data[ix].index);
 
 }
 
 
-int join_fft_thread()
+void join_fft_thread()
 {
     int b;
 
+    int line=last_thread_ix%WTF_HEIGHT;
+    for (int j=0;j<WTF_WIDTH;j++)
+    {
+      // TODO, set output based on result
+      imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH+j)]=WGREEN(255);
+    }
+
     pthread_join(thread_id,(void **)&b);  //here we are reciving one pointer
 
-    printf("b is %d\n",b);
+    //printf("b is %d\n",b);
 
 }
 
@@ -135,6 +148,7 @@ int join_fft_thread()
 /* To here */
 
 
+#if 0
 void generate_freq(int *buffer, size_t count, float volume, float freq)
 {
   size_t pos; // sample number we're on
@@ -146,6 +160,7 @@ void generate_freq(int *buffer, size_t count, float volume, float freq)
     //buffer[pos] = remap_level_to_signed_16_bit(v);
   }
 }
+#endif
 
 // Returns true if keyboard was hit
 int _kbhit() {
@@ -240,11 +255,14 @@ void drawOpenVG() {
     }
     Text(20, height -60 ,Buffer, SerifTypeface, 20);	// Info
 
-	sprintf(Buffer, "RSSI:%ddb Squelch:%d agc:%d ", rssi,squelch,agc);
+    sprintf(Buffer, "RSSI:%d Squelch:%d agc:%d ", rssi,squelch,agc);
 
-	Text(20, height - 80, Buffer, SerifTypeface, 20);	// Info
+   Text(20, height - 100, Buffer, SerifTypeface, 20);	// Info
 
-	Text(20, height - 100, "q - to quit", SerifTypeface, 20);	// Info
+   Text(20, height - 140, "q - to quit", SerifTypeface, 20);	// Info
+
+   makeimage(width-WTF_WIDTH,height-WTF_HEIGHT,WTF_WIDTH,WTF_HEIGHT,(const char *)imageData);
+
 
     End();
 }
@@ -262,8 +280,9 @@ void retune() {
         Buf[7] = 0xa0;      // command to retune
         bcm2835_spi_transfern(Buf, 8);
 }
+
 // Sends the squelch value to radio
-setSquelch() 
+void setSquelch() 
 {
 	char Buf[64];
 	Buf[0] = 0x00;     // write
@@ -271,7 +290,6 @@ setSquelch()
 	Buf[2] = 0xf5;     // addr lo for squlech
 	Buf[3] = squelch;  // RF frequency - low byte
 	bcm2835_spi_transfern(Buf, 4);
-
 }
 
 
@@ -412,6 +430,8 @@ int main(int argc, char** argv) {
         bcm2835_spi_transfern(Buf, 8);
     }
     
+    // Set to zero
+    setSquelch();
 
     if (EmitSound || StdOutSound)
     {
@@ -446,9 +466,9 @@ int main(int argc, char** argv) {
                 Buf[1] = 0x00;  // addr hi
                 Buf[2] = 0xf8;  // addr lo
                 bcm2835_spi_transfern(Buf, 7);
-				rssi = Buf[3];
-				agc = Buf[4];
-                printf("RSSI = %d, AGC = %d, %02x %02x\n", Buf[3], Buf[4], Buf[5], Buf[6]);
+	        rssi = Buf[3];
+	        agc = Buf[4];
+	       //printf("RSSI = %d, AGC = %d, %02x %02x\n", Buf[3], Buf[4], Buf[5], Buf[6]);
             }
             do
             {
@@ -500,11 +520,12 @@ int main(int argc, char** argv) {
             }
 
 	    // Join thread
+            unsigned char *fcharp= buffer+3;
 	    if (last_thread_ix!=-1) {
 	      join_fft_thread();
 	    }
 	    last_thread_ix++;
-	    start_fft_thread(last_thread_ix%4);
+	    start_fft_thread(last_thread_ix%4,fcharp);
 
 	    // Check keyboard
 
@@ -525,7 +546,8 @@ int main(int argc, char** argv) {
 
 
               case 's':
-				squelch += 1;
+				squelch += 10;
+				if (squelch > 255) squelch = 255;
 				setSquelch();
               break;
 
