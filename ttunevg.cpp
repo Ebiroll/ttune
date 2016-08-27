@@ -69,7 +69,7 @@ unsigned char buffer[2 * NFRAMES + 3];                          /* Buffer data f
 #define  WTF_HEIGHT  1024
 
 // 32 bit RGBA
-unsigned int imageData[WTF_WIDTH*WTF_HEIGHT];
+unsigned int imageData[WTF_WIDTH*(WTF_HEIGHT+1)];
 
 
 pthread_t thread_id;
@@ -133,12 +133,19 @@ void join_fft_thread()
     int line=last_thread_ix%WTF_HEIGHT;
     for (int j=0;j<WTF_WIDTH;j++)
     {
-		int freq = j*thread_data[last_thread_ix].N_samples / 2*WTF_WIDTH;
-		double *result = (double *) thread_data[last_thread_ix].output;
-		if (freq >= NFRAMES) freq = NFRAMES - 1;
-		float power = result[freq * 2] * result[freq * 2] + result[1 + freq * 2] * result[1 + freq * 2];
-      // TODO, set output based on result
-      imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH+j)]=WGREEN((int)power);
+        //
+        //int freq = j*thread_data[last_thread_ix].N_samples / 2*WTF_WIDTH;
+        int freq = j*4;
+	double *result = (double *) thread_data[last_thread_ix%4].output;
+	//if (freq >= NFRAMES/2) freq = NFRAMES/2 - 1;
+	double power = result[freq*2] * result[freq*2 ] + result[1+ freq*2 ] * result[1 + freq*2];
+	int ipower = power/1000000000;
+	if (ipower>255) ipower=255;
+	if (ipower <0) ipower=0;
+	//printf("%d ",ipower);
+        // TODO, This is not at all correct but better than nothing, fix later!!!
+        imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH-j)]=WGREEN(ipower);
+	//imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH+j)]=0;
     }
 
     pthread_join(thread_id,(void **)&b);  //here we are reciving one pointer
@@ -538,14 +545,23 @@ int main(int argc, char** argv) {
 
             switch(c)
               {
-			  case 't':
- 	            FreqInHz+=50;
-                retune();
-			  break;
-			  case 'T':
-                FreqInHz-=50;
-                retune();
-			  break;
+		  case 't':
+   	                 FreqInHz+=50;
+                         retune();
+		 break;
+	         case 'T':
+                    FreqInHz-=50;
+                    retune();
+		 break;
+
+		  case 'g':
+   	                 FreqInHz+=10;
+                         retune();
+		 break;
+	         case 'G':
+                    FreqInHz-=10;
+                    retune();
+		 break;
 
 
               case 's':

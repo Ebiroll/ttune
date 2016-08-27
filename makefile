@@ -81,7 +81,7 @@ ttunevg.o:  ttunevg.cpp ttunevg.h
 ttunevg:  ttunevg.o 
 	g++ -g -Wall $(INCLUDEFLAGS) $(LIBFLAGS) ttunevg.o oglinit.o libshapes.o $(PARAMS_LIBS) $(PARAMS_MISC)  -fpic -lfftw3  -lbcm2835  -lasound  -lpthread -o ttunevg
 
-#########
+######### csdr functions not needed
 
 arm-cross: clean-vect
 	#note: this doesn't work since having added FFTW
