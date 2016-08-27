@@ -46,12 +46,9 @@
 #include <sys/ioctl.h>
 #include "shapes.h"
 
-//#define NFRAMES 12000
-#define NFRAMES 16384
 
 static char *device = "default";                        /* playback device */
 snd_output_t *output = NULL;
-unsigned char buffer[2*NFRAMES + 3];                          /* some random data */
 
 #define SAMPLING_RATE 48000
 
@@ -108,8 +105,10 @@ void init_fft() {
         thread_data[j].N_samples=NFRAMES;
         // Only need N/2 values for output?
         thread_data[j].output= (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * thread_data[j].N_samples);
-        thread_data[j].windowed_input= (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * thread_data[j].N_samples);
-        thread_data[j].plan=fftw_plan_dft_1d(thread_data[j].N_samples, thread_data[j].windowed_input, thread_data[j].output, FFTW_FORWARD, FFTW_ESTIMATE);
+        thread_data[j].windowed_input= (doublw*) fftw_malloc(sizeof(double) * thread_data[j].N_samples);
+		// Maybe use, fftw_plan_dft_r2c_1d
+        //thread_data[j].plan=fftw_plan_dft_1d(thread_data[j].N_samples, thread_data[j].windowed_input, thread_data[j].output, FFTW_FORWARD, FFTW_ESTIMATE);
+		thread_data[j].plan = fftw_plan_dft_r2c_1d(thread_data[j].N_samples, thread_data[j].windowed_input, thread_data[j].output, FFTW_ESTIMATE);
     }
 }
 
@@ -171,21 +170,6 @@ int _kbhit() {
 
 void sweep(double f_start, double f_end, double interval, int n_steps) {
 
-#if 0
-    // Single freq
-    size_t pos; // sample number we're on
-
-    int freq=440;
-    for (pos = 0; pos < n_steps; pos++) {
-      float a = 2 * M_PI * freq * pos / 44100;
-      float v = sin(a);
-      //fwrite (&v,	sizeof(float),1, stdout);
-      short tmp_shrt=10*v;
-      fwrite (&tmp_shrt,	sizeof(short),1, stdout);
-    }
-#endif
-
-
 
     for (int i = 0; i < n_steps; ++i) {
         double delta = i / (float)n_steps;
@@ -228,6 +212,18 @@ char AM, WB, HF;
 
 unsigned long FreqInHz;
 
+int rssi=0;
+int agc=0;
+
+int squelch=0;
+
+
+void drawHelp() {
+	// s/S - Squelch +/-
+	// t/T - Tune  +50/-50
+
+}
+
 
 void drawOpenVG() {
     char Buffer[128];
@@ -244,9 +240,16 @@ void drawOpenVG() {
     }
     Text(20, height -60 ,Buffer, SerifTypeface, 20);	// Info
 
+	sprintf(Buffer, "RSSI:%ddb Squelch:%d agc:%d ", rssi,squelch,agc);
+
+	Text(20, height - 80, Buffer, SerifTypeface, 20);	// Info
+
+	Text(20, height - 100, "q - to quit", SerifTypeface, 20);	// Info
+
     End();
 }
 
+// Sends the tuned frequency to radio
 void retune() {
         char Buf[64];
         Buf[0] = 0x00;  // write
@@ -258,6 +261,17 @@ void retune() {
         Buf[6] = (FreqInHz >> 24) & 0xff;  // high byte
         Buf[7] = 0xa0;      // command to retune
         bcm2835_spi_transfern(Buf, 8);
+}
+// Sends the squelch value to radio
+setSquelch() 
+{
+	char Buf[64];
+	Buf[0] = 0x00;     // write
+	Buf[1] = 0x0;      // addr hi for squelch
+	Buf[2] = 0xf5;     // addr lo for squlech
+	Buf[3] = squelch;  // RF frequency - low byte
+	bcm2835_spi_transfern(Buf, 4);
+
 }
 
 
@@ -283,7 +297,7 @@ int main(int argc, char** argv) {
     int audio_val;
     snd_pcm_t *handle;
     snd_pcm_sframes_t frames;
-    int DisplayRSSI = 0;
+    int DisplayRSSI = 1;
     
     if (argc  > 1)
     {
@@ -432,6 +446,8 @@ int main(int argc, char** argv) {
                 Buf[1] = 0x00;  // addr hi
                 Buf[2] = 0xf8;  // addr lo
                 bcm2835_spi_transfern(Buf, 7);
+				rssi = Buf[3];
+				agc = Buf[4];
                 printf("RSSI = %d, AGC = %d, %02x %02x\n", Buf[3], Buf[4], Buf[5], Buf[6]);
             }
             do
@@ -498,22 +514,27 @@ int main(int argc, char** argv) {
 
             switch(c)
               {
-	      case 't':
-		FreqInHz+=50;
-		retune();
-		break;
-	      case 'T':
-		FreqInHz-=50;
-		retune();
-		break;
+			  case 't':
+ 	            FreqInHz+=50;
+                retune();
+			  break;
+			  case 'T':
+                FreqInHz-=50;
+                retune();
+			  break;
 
-            case 'o':
-              tridelta-=30;
-              //printf("p-pressed\n");
-              // Increase freqeuncy
+
+              case 's':
+				squelch += 1;
+				setSquelch();
               break;
 
-              case 'p':
+              case 'S':
+				  squelch -= 1;
+				  if (squelch < 0) squelch = 0;
+				  setSquelch();
+				  break;
+			  case 'o':
                 tridelta+=30;
                 //printf("p-pressed\n");
                 // Increase freqeuncy
