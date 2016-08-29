@@ -55,13 +55,16 @@ openvg/shivavg/shVgu.c)
 
 
 ADD_EXECUTABLE(ttunevg
-openvg/libshapes.c
 ${shiva_SRC}
+openvg/libshapes.c
 openvg/shivavg/glx.c
 ttunevg.cpp
 openvg/shivavg/VG/openvg.h
 openvg/shivavg/VG/vgu.h
 bcm-stub/bcm2835.c
+fft.c
+wav.c
+wav.h
 )
 
 

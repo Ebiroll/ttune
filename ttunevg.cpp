@@ -39,6 +39,7 @@
 #include <bcm2835.h>
 #include "alsa/asoundlib.h"
 #include <math.h>
+#include "fft.h"
 
 // Keyboard hit check
 #include <sys/select.h>
@@ -64,12 +65,21 @@ unsigned char buffer[2 * NFRAMES + 3];                          /* Buffer data f
 
 /* FFT thread */
 
+double windowdata[NFRAMES];
+
 #define  WTF_WIDTH  512
 
 #define  WTF_HEIGHT  1024
 
-// 32 bit RGBA
+// 32 bit RGBA waterfall
 unsigned int imageData[WTF_WIDTH*(WTF_HEIGHT+1)];
+
+#define FFT_WIDTH 512
+
+#define FFT_HEIGHT 128
+
+// 32 bit RGBA FFT
+unsigned int fftImage[FFT_WIDTH*(FFT_HEIGHT+1)];
 
 
 pthread_t thread_id;
@@ -81,20 +91,29 @@ int last_thread_ix=-1;
 void* thread_function(void *idx)
 {
     int *i=(int *)idx;
+    // Apply window
+
+    for (int q=0;q<NFRAMES;q++) {
+      thread_data[*i].windowed_input[q] = thread_data[*i].windowed_input[q] * windowdata[q];
+    }
+
     //printf("fftw_execute %d\n",*i);
     fftw_execute(thread_data[*i].plan);
 
     pthread_exit((void *)idx);
 }
 
-
 void init_fft() {
+
+    // Initialze window function
+    compute_window(windowdata,HANNING_WINDOW,NFRAMES);
 
     // Set waterfall image to red
     for (int ii=0;ii<WTF_WIDTH*WTF_HEIGHT;ii++) {
       imageData[ii]=WRED(100);
     }
 
+    // Initialze data for the fft threads
     for (int j=0;j<MAX_T;j++)
     {
         thread_data[j].index=j;
@@ -108,8 +127,7 @@ void init_fft() {
     }
 }
 
-
-void start_fft_thread(int ix,char *buffer)
+void start_fft_thread(int ix,unsigned char *buffer)
 {
   // Copy data in main thread..
   short *tmp_ptr=(short *) buffer;
@@ -131,24 +149,60 @@ void join_fft_thread()
     int b;
 
     int line=last_thread_ix%WTF_HEIGHT;
+
+    pthread_join(thread_id,(void **)&b);  //here we are reciving one pointer
+
+    /* normalize  */
+    //w_pwr = 0.0;
+    //for (i = 0; i < N; i++) {
+    //  w_pwr += window[i] * window[i];
+    //}
+    //for (i = 0; i < N; i++) {
+    // window[i] /= sqrt(w_pwr);
+    //}
+
+
+    // Set fft image
+    for(int x=0;x<FFT_WIDTH;x++) {
+        int y=0;
+        int freq = x;
+        double *result = (double *) thread_data[last_thread_ix%4].output;
+        double power = sqrt(result[freq*2] * result[freq*2 ] + result[1+ freq*2 ] * result[1 + freq*2]);
+        int ipower = power/10000;
+        //printf("%d ",ipower);
+
+        if (ipower>FFT_HEIGHT) ipower=FFT_HEIGHT;
+        if (ipower <0) ipower=0;
+
+        for (y=0;y<ipower;y++)
+        {
+          fftImage[x+y*FFT_WIDTH]=WGREEN(255);
+        }
+        while (y<FFT_HEIGHT) {
+            fftImage[x+y*FFT_WIDTH]=0;
+            y++;
+        }
+    }
+
     for (int j=0;j<WTF_WIDTH;j++)
     {
         //
         //int freq = j*thread_data[last_thread_ix].N_samples / 2*WTF_WIDTH;
         int freq = j*4;
-	double *result = (double *) thread_data[last_thread_ix%4].output;
-	//if (freq >= NFRAMES/2) freq = NFRAMES/2 - 1;
-	double power = result[freq*2] * result[freq*2 ] + result[1+ freq*2 ] * result[1 + freq*2];
-	int ipower = power/1000000000;
-	if (ipower>255) ipower=255;
-	if (ipower <0) ipower=0;
-	//printf("%d ",ipower);
-        // TODO, This is not at all correct but better than nothing, fix later!!!
+        double *result = (double *) thread_data[last_thread_ix%4].output;
+        //if (freq >= NFRAMES/2) freq = NFRAMES/2 - 1;
+        double power = sqrt(result[freq*2] * result[freq*2 ] + result[1+ freq*2 ] * result[1 + freq*2]);
+        int ipower = power/1000;
+        //printf("%d ",ipower);
+
+        // Clip power
+        if (ipower>255) ipower=255;
+        if (ipower <0) ipower=0;
+
         imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH-j)]=WGREEN(ipower);
-	//imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH+j)]=0;
+        //imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH+j)]=0;
     }
 
-    pthread_join(thread_id,(void **)&b);  //here we are reciving one pointer
 
     //printf("b is %d\n",b);
 
@@ -158,19 +212,19 @@ void join_fft_thread()
 /* To here */
 
 
-#if 0
-void generate_freq(int *buffer, size_t count, float volume, float freq)
+void generate_freq(short *buffer, size_t count, float volume, float freq)
 {
-  size_t pos; // sample number we're on
+  static size_t pos=0; // sample number we're on
+  size_t endpos=pos+count;
 
-  for (pos = 0; pos < count; pos++) {
+  int j=0;
+  for (pos = pos; pos < endpos; pos++) {
     float a = 2 * 3.14159f * freq * pos / SAMPLING_RATE;
     float v = sin(a) * volume;
     // convert from [-1.0,1.0] to [-32767,32767]:
-    //buffer[pos] = remap_level_to_signed_16_bit(v);
+    buffer[j++] = 32767.0*(v);
   }
 }
-#endif
 
 // Returns true if keyboard was hit
 int _kbhit() {
@@ -217,7 +271,8 @@ void sweep(double f_start, double f_end, double interval, int n_steps) {
 //
 
 short triangle=0;
-short tridelta=300;
+short tridelta=440;
+float freqency=440.0f;
 
  //Generate  NFRAMES of triangle wave sweep, increase frequency for each call
 void short_sweep(short *data) {
@@ -267,11 +322,13 @@ void drawOpenVG() {
 
     sprintf(Buffer, "RSSI:%d Squelch:%d agc:%d ", rssi,squelch,agc);
 
-   Text(20, height - 100, Buffer, SerifTypeface, 20);	// Info
+    Text(20, height - 100, Buffer, SerifTypeface, 20);	// Info
 
-   Text(20, height - 140, "q - to quit", SerifTypeface, 20);	// Info
+    Text(20, height - 140, "q - to quit", SerifTypeface, 20);	// Info
 
-   makeimage(width-WTF_WIDTH,height-WTF_HEIGHT,WTF_WIDTH,WTF_HEIGHT,(const char *)imageData);
+    makeimage(width-WTF_WIDTH,height-WTF_HEIGHT,WTF_WIDTH,WTF_HEIGHT,(VGubyte *)imageData);
+
+    makeimage(0,0,FFT_WIDTH,FFT_HEIGHT,(VGubyte *)fftImage);
 
 
     End();
@@ -499,7 +556,9 @@ int main(int argc, char** argv) {
             // Generate testsound for output
             if (TestSound) {
                unsigned char *silly= buffer +3;
-               short_sweep((short *)(silly));
+               //short_sweep((short *)(silly));
+               generate_freq((short *)silly,NFRAMES,0.8f,freqency);
+               //freqency=freqency+10.0f;
             }
 
             if (StdOutSound) {
@@ -539,61 +598,77 @@ int main(int argc, char** argv) {
 
 	    // Check keyboard
 
-	    if (_kbhit())
+        if (_kbhit())
         {
             char c=getchar();
 
             switch(c)
-              {
-		  case 't':
-   	                 FreqInHz+=50;
-                         retune();
-		 break;
-	         case 'T':
-                    FreqInHz-=50;
-                    retune();
-		 break;
+            {
+            case 't':
+                FreqInHz+=50;
+                retune();
+                break;
+            case 'T':
+                FreqInHz-=50;
+                retune();
+                break;
 
-		  case 'g':
-   	                 FreqInHz+=10;
-                         retune();
-		 break;
-	         case 'G':
-                    FreqInHz-=10;
-                    retune();
-		 break;
+            case 'g':
+                FreqInHz+=10;
+                retune();
+                break;
+            case 'G':
+                FreqInHz-=10;
+                retune();
+                break;
 
+            case 's':
+                squelch += 10;
+                if (squelch > 255) squelch = 255;
+                setSquelch();
+                break;
 
-              case 's':
-				squelch += 10;
-				if (squelch > 255) squelch = 255;
-				setSquelch();
-              break;
-
-              case 'S':
-				  squelch -= 1;
-				  if (squelch < 0) squelch = 0;
-				  setSquelch();
-				  break;
-			  case 'o':
-                tridelta+=30;
-                //printf("p-pressed\n");
+            case 'S':
+                squelch -= 1;
+                if (squelch < 0) squelch = 0;
+                setSquelch();
+                break;
+            case 'o':
+                tridelta-=30;
+                freqency=freqency/2;
+                printf("freq %.2f Hz\n",freqency);
                 // Increase freqeuncy
                 break;
-               case 'q':
-               case 'Q':
+            case 'p':
+                tridelta+=30;
+                freqency=freqency*2;
+                printf("freq %.2f Hz\n",freqency);
+                // Increase freqeuncy
+                break;
+            case 'l':
+                freqency=freqency+100;
+                printf("freq %.2f Hz\n",freqency);
+                // Increase freqeuncy
+                break;
+            case 'L':
+                freqency=freqency-100;
+                printf("freq %.2f Hz\n",freqency);
+                // Increase freqeuncy
+                break;
+            case 'q':
+            case 'Q':
                 EmitSound=0;
                 StdOutSound=0;
                 break;
-              default:
+            default:
                 printf("pressed %d\n",c);
 
                 break;
-              }
-          }
+            }
+        }
         else
         {
-	  //printf(".");
+            //printf(".");
         }
         drawOpenVG();
 
