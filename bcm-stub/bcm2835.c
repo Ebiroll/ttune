@@ -12,7 +12,7 @@ void bcm2835_spi_setClockDivider(uint16_t divider) {
 
 }
 
-bcm2835_spi_setDataMode(uint8_t mode)
+void bcm2835_spi_setDataMode(uint8_t mode)
 {
 }
 
