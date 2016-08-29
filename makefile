@@ -63,11 +63,18 @@ all:	ttunevg
 	#-./csdr/parsevect dumpvect*.vect
 	#gcc -std=gnu99 $(PARAMS_LOOPVECT) $(PARAMS_SIMD) csdr/csdr.c $(PARAMS_LIBS) -L. -lcsdr $(PARAMS_MISC) -o csdr.bin
 libshapes.o:	libshapes.c shapes.h fontinfo.h
-	#gcc -O2 -Wall $(INCLUDEFLAGS) -c libshapes.c
+	gcc -O2 -Wall $(INCLUDEFLAGS) -c libshapes.c
 
+nospi:	fft.o oglinit.o libshapes.o
+	g++ -g -Wall $(INCLUDEFLAGS) -I bcm-stub -fpermissive  -c ttunevg.cpp -o ttunevg.o
+	g++ -g -Wall $(INCLUDEFLAGS) -I bcm-stub -fpermissive  -c bcm-stub/bcm2835.c -o bcm.o
+	g++ -g -Wall $(INCLUDEFLAGS) $(LIBFLAGS) ttunevg.o oglinit.o fft.o libshapes.o bcm.o $(PARAMS_LIBS) $(PARAMS_MISC)  -fpic -lfftw3    -lasound  -lpthread -o ttunevg
 
 oglinit.o:	oglinit.c
 	gcc -O2 -Wall $(INCLUDEFLAGS) -c oglinit.c
+
+fft.o:	fft.c
+	gcc -O2 -Wall $(INCLUDEFLAGS) -c fft.c
 
 
 fonts:	$(FONTFILES)
@@ -79,7 +86,7 @@ ttunevg.o:  ttunevg.cpp ttunevg.h
 	g++ -g -Wall $(INCLUDEFLAGS) -fpermissive  -c ttunevg.cpp -o ttunevg.o
 
 ttunevg:  ttunevg.o 
-	g++ -g -Wall $(INCLUDEFLAGS) $(LIBFLAGS) ttunevg.o oglinit.o libshapes.o $(PARAMS_LIBS) $(PARAMS_MISC)  -fpic -lfftw3  -lbcm2835  -lasound  -lpthread -o ttunevg
+	g++ -g -Wall $(INCLUDEFLAGS) $(LIBFLAGS) ttunevg.o oglinit.o libshapes.o fft.o $(PARAMS_LIBS) $(PARAMS_MISC)  -fpic -lfftw3  -lbcm2835  -lasound  -lpthread -o ttunevg
 
 ######### csdr functions not needed
 
