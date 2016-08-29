@@ -86,7 +86,8 @@ pthread_t thread_id;
 
 fft_holder thread_data[MAX_T];
 
-int last_thread_ix=-1;
+int last_thread_ix=0;
+int first_thread=1;
 
 void* thread_function(void *idx)
 {
@@ -165,18 +166,24 @@ void join_fft_thread()
     // Set fft image
     for(int x=0;x<FFT_WIDTH;x++) {
         int y=0;
-        int freq = x;
+        int freq = x*2;
         double *result = (double *) thread_data[last_thread_ix%4].output;
         double power = sqrt(result[freq*2] * result[freq*2 ] + result[1+ freq*2 ] * result[1 + freq*2]);
         int ipower = power/10000;
+	//int phase = result[1 + freq*2]/100;
+	//printf("%d ",phase);
         //printf("%d ",ipower);
+        //if (phase<0) phase=phase*-1;
+        //if (phase>128) phase=128;
+        //if (phase<0) phase=0;
 
         if (ipower>FFT_HEIGHT) ipower=FFT_HEIGHT;
         if (ipower <0) ipower=0;
+	
 
         for (y=0;y<ipower;y++)
         {
-          fftImage[x+y*FFT_WIDTH]=WGREEN(255);
+          fftImage[x+y*FFT_WIDTH]=WGREEN(255); // | WBLUE(phase);
         }
         while (y<FFT_HEIGHT) {
             fftImage[x+y*FFT_WIDTH]=0;
@@ -192,14 +199,14 @@ void join_fft_thread()
         double *result = (double *) thread_data[last_thread_ix%4].output;
         //if (freq >= NFRAMES/2) freq = NFRAMES/2 - 1;
         double power = sqrt(result[freq*2] * result[freq*2 ] + result[1+ freq*2 ] * result[1 + freq*2]);
-        int ipower = power/1000;
+        int ipower = power/2000;
         //printf("%d ",ipower);
 
         // Clip power
         if (ipower>255) ipower=255;
         if (ipower <0) ipower=0;
 
-        imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH-j)]=WGREEN(ipower);
+        imageData[line*WTF_WIDTH+j]=WGREEN(ipower);
         //imageData[WTF_WIDTH*WTF_HEIGHT-(line*WTF_WIDTH+j)]=0;
     }
 
@@ -286,7 +293,7 @@ void short_sweep(short *data) {
 }
 
 
-int width,height;
+int width=1280,height=1024;
 
 char AM, WB, HF;
 
@@ -307,10 +314,15 @@ void drawHelp() {
 
 void drawOpenVG() {
     char Buffer[128];
+
+    int line=(last_thread_ix)%WTF_HEIGHT;
+    if (line<0) line=1;
+    if (line>=WTF_HEIGHT-1) line=WTF_HEIGHT-1;
+
     Start(width, height);				   // Start the picture
     Background(0, 0, 0);				   // Black background
-    Fill(44, 77, 232, 1);				   // Big blue marble
-    Roundrect(0,0,width-WTF_WIDTH, height,20,20);		   // The "world"
+    Fill(44, 77, 232, 1);				   // Blue background
+    //Roundrect(0,0,width-WTF_WIDTH, height,30,30);	   // Blue rounded area
     Fill(255, 255, 255, 1);				   // White text
     Text(20, height -20 , "ttunevg", SerifTypeface, 20);	// Info
     if (AM) {
@@ -326,7 +338,19 @@ void drawOpenVG() {
 
     Text(20, height - 140, "q - to quit", SerifTypeface, 20);	// Info
 
+#define WATERFALL 1
+
+#if WATERFALL
+    // Draw top
+    makeimage(width-WTF_WIDTH,WTF_HEIGHT-(line+1),WTF_WIDTH,line+1,(VGubyte *)&imageData[0]);
+
+    // Draw the rest
+    makeimage(width-WTF_WIDTH,0,WTF_WIDTH,WTF_HEIGHT-line,(VGubyte *)&imageData[line*WTF_WIDTH]); 
+#else
     makeimage(width-WTF_WIDTH,height-WTF_HEIGHT,WTF_WIDTH,WTF_HEIGHT,(VGubyte *)imageData);
+#endif
+
+    // WTF_HEIGHT-(line+2)
 
     makeimage(0,0,FFT_WIDTH,FFT_HEIGHT,(VGubyte *)fftImage);
 
@@ -590,9 +614,10 @@ int main(int argc, char** argv) {
 
 	    // Join thread
             unsigned char *fcharp= buffer+3;
-	    if (last_thread_ix!=-1) {
+	    if (first_thread!=1) {
 	      join_fft_thread();
 	    }
+	    first_thread=0;
 	    last_thread_ix++;
 	    start_fft_thread(last_thread_ix%4,fcharp);
 
@@ -604,6 +629,46 @@ int main(int argc, char** argv) {
 
             switch(c)
             {
+            case '1':
+	      // ESSB Atis 
+                FreqInHz=122450;
+                retune();
+                break;
+            case '2':
+	      // ESSB TWR
+                FreqInHz=118100;
+                retune();
+                break;
+            case '3':
+	      // ESSB GND
+                FreqInHz=121600;
+                retune();
+                break;
+
+            case 'a':
+	      // Acars
+                FreqInHz=131825;
+                retune();
+                break;
+
+            case 'A':
+	      // Acars
+                FreqInHz=131725;
+                retune();
+                break;
+
+            case 'z':
+	      // Acars European freq
+                FreqInHz=136900;
+                retune();
+                break;
+
+            case 'Z':
+	      // Acars European freq
+                FreqInHz=136750;
+                retune();
+                break;
+
             case 't':
                 FreqInHz+=50;
                 retune();

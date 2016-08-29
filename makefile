@@ -85,7 +85,7 @@ library: oglinit.o libshapes.o
 ttunevg.o:  ttunevg.cpp ttunevg.h
 	g++ -g -Wall $(INCLUDEFLAGS) -fpermissive  -c ttunevg.cpp -o ttunevg.o
 
-ttunevg:  ttunevg.o 
+ttunevg:  ttunevg.o fft.o
 	g++ -g -Wall $(INCLUDEFLAGS) $(LIBFLAGS) ttunevg.o oglinit.o libshapes.o fft.o $(PARAMS_LIBS) $(PARAMS_MISC)  -fpic -lfftw3  -lbcm2835  -lasound  -lpthread -o ttunevg
 
 ######### csdr functions not needed
