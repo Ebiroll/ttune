@@ -280,6 +280,7 @@ void sweep(double f_start, double f_end, double interval, int n_steps) {
 short triangle=0;
 short tridelta=440;
 float freqency=440.0f;
+int TestSound = 0;
 
  //Generate  NFRAMES of triangle wave sweep, increase frequency for each call
 void short_sweep(short *data) {
@@ -337,6 +338,12 @@ void drawOpenVG() {
     Text(20, height - 100, Buffer, SerifTypeface, 20);	// Info
 
     Text(20, height - 140, "q - to quit", SerifTypeface, 20);	// Info
+
+    if (TestSound==1) {
+        sprintf(Buffer, "Test freq: %.2f Hz", freqency);
+        Text(20, height - 180, Buffer, SerifTypeface, 20);	// Info
+    }
+
 
 #define WATERFALL 1
 
@@ -397,7 +404,7 @@ int main(int argc, char** argv) {
     char *ArgStr;
     int EmitSound = 0;
     int StdOutSound = 0;
-    int TestSound = 0;
+
 
     int err;
     int Debug = 0;
