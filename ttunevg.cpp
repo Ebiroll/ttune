@@ -279,8 +279,9 @@ void sweep(double f_start, double f_end, double interval, int n_steps) {
 
 short triangle=0;
 short tridelta=440;
-float freqency=440.0f;
+float frequency=440.0f;
 int TestSound = 0;
+int drawHelpText=0;
 
  //Generate  NFRAMES of triangle wave sweep, increase frequency for each call
 void short_sweep(short *data) {
@@ -306,9 +307,37 @@ int agc=0;
 int squelch=0;
 
 
-void drawHelp() {
+void drawHelp(int pos) {
+    char Buffer[128];
 	// s/S - Squelch +/-
 	// t/T - Tune  +50/-50
+
+    pos +=40;
+    sprintf(Buffer,"t/T - Tune  +50/-50");
+    Text(20, height - pos , Buffer, SerifTypeface, 20);	// Info
+
+    pos +=40;
+    sprintf(Buffer,"g/G - Tune  +10/-10");
+    Text(20, height - pos , Buffer, SerifTypeface, 20);	// Info
+
+    pos +=40;
+    sprintf(Buffer,"s/S - Squelch +/-");
+    Text(20, height - pos , Buffer, SerifTypeface, 20);	// Info
+
+    pos +=40;
+    sprintf(Buffer,"1-3 Preset frequencies");
+    Text(20, height - pos , Buffer, SerifTypeface, 20);	// Info
+
+     if (TestSound==1) {
+         pos +=40;
+
+         sprintf(Buffer,"o,p,l/L change test frequncy");
+         Text(20, height - pos , Buffer, SerifTypeface, 20);	// Info
+   }
+
+   pos +=40;
+   sprintf(Buffer,"q,Q - quit, H -remove help");
+   Text(20, height - pos , Buffer, SerifTypeface, 20);	// Info
 
 }
 
@@ -337,11 +366,15 @@ void drawOpenVG() {
 
     Text(20, height - 100, Buffer, SerifTypeface, 20);	// Info
 
-    Text(20, height - 140, "q - to quit", SerifTypeface, 20);	// Info
+    Text(20, height - 140, "q - to quit, h - help", SerifTypeface, 20);	// Info
 
     if (TestSound==1) {
-        sprintf(Buffer, "Test freq: %.2f Hz", freqency);
+        sprintf(Buffer, "Test freq: %.2f Hz", frequency);
         Text(20, height - 180, Buffer, SerifTypeface, 20);	// Info
+    }
+
+    if (drawHelpText) {
+        drawHelp(180);
     }
 
 
@@ -588,8 +621,8 @@ int main(int argc, char** argv) {
             if (TestSound) {
                unsigned char *silly= buffer +3;
                //short_sweep((short *)(silly));
-               generate_freq((short *)silly,NFRAMES,0.8f,freqency);
-               //freqency=freqency+10.0f;
+               generate_freq((short *)silly,NFRAMES,0.8f,frequency);
+               //frequency=frequency+10.0f;
             }
 
             if (StdOutSound) {
@@ -676,6 +709,14 @@ int main(int argc, char** argv) {
                 retune();
                 break;
 
+            case 'h':
+                drawHelpText=1;
+                break;
+
+            case 'H':
+                drawHelpText=0;
+                break;
+
             case 't':
                 FreqInHz+=50;
                 retune();
@@ -707,24 +748,24 @@ int main(int argc, char** argv) {
                 break;
             case 'o':
                 tridelta-=30;
-                freqency=freqency/2;
-                printf("freq %.2f Hz\n",freqency);
+                frequency=frequency/2;
+                printf("freq %.2f Hz\n",frequency);
                 // Increase freqeuncy
                 break;
             case 'p':
                 tridelta+=30;
-                freqency=freqency*2;
-                printf("freq %.2f Hz\n",freqency);
+                frequency=frequency*2;
+                printf("freq %.2f Hz\n",frequency);
                 // Increase freqeuncy
                 break;
             case 'l':
-                freqency=freqency+100;
-                printf("freq %.2f Hz\n",freqency);
+                frequency=frequency+100;
+                printf("freq %.2f Hz\n",frequency);
                 // Increase freqeuncy
                 break;
             case 'L':
-                freqency=freqency-100;
-                printf("freq %.2f Hz\n",freqency);
+                frequency=frequency-100;
+                printf("freq %.2f Hz\n",frequency);
                 // Increase freqeuncy
                 break;
             case 'q':
