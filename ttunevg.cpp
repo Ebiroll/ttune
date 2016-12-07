@@ -684,6 +684,11 @@ int main(int argc, char** argv) {
                 FreqInHz=121600;
                 retune();
                 break;
+            case '4':
+	      // ESSB GND
+                FreqInHz=119400;
+                retune();
+                break;
 
             case 'a':
 	      // Acars
@@ -741,6 +746,10 @@ int main(int argc, char** argv) {
                 setSquelch();
                 break;
 
+            case 'x':
+	        squelch = 63;
+                setSquelch();
+                break;
             case 'S':
                 squelch -= 1;
                 if (squelch < 0) squelch = 0;
