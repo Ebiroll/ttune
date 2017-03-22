@@ -13,12 +13,16 @@ Also contains
 
 #  To run, without trilby hardware
 
-   make nopi
+   make nospi
+
+#  To run on other linux than raspberry
+mkdir build
+cd build
+cmake ..
 
 
-
-Errors in Trilby sample firmware API document,
-
+##Errors in Trilby sample firmware API document,
+´´´
 Squelch is on register 0xf5
 Mute is on register 0xf6
-
+´´´
