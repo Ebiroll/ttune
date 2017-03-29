@@ -13,19 +13,19 @@ Also contains
 
 #  To run, without trilby hardware
 
-   make nospi
+    make nospi
 
 #  To run on other linux than raspberry
-  sudo apt-get install libfftw3-dev 
-  mkdir build
-  cd build
-  cmake ..
-  make
-  ./ttunevg -t -s
+    sudo apt-get install libfftw3-dev 
+    mkdir build
+    cd build
+    cmake ..
+    make
+    ./ttunevg -t -s
 Keypress should be done in terminal window, not openvg window 
 
 
 #  Errors in Trilby sample firmware API document,
-  Squelch is on register 0xf5
-  Mute is on register 0xf6
+   Squelch is on register 0xf5
+   Mute is on register 0xf6
 
