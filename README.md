@@ -17,7 +17,6 @@ Also contains
 
 #  To run on other linux than raspberry
   sudo apt-get install libfftw3-dev 
-
   mkdir build
   cd build
   cmake ..
@@ -27,7 +26,6 @@ Keypress should be done in terminal window, not openvg window
 
 
 #  Errors in Trilby sample firmware API document,
-´´´
   Squelch is on register 0xf5
   Mute is on register 0xf6
-´´´
+
