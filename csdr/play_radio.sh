@@ -1,0 +1,1 @@
+rtl_sdr -s 240000 -f 103300000 -g 20 - | csdr convert_u8_f | csdr fmdemod_quadri_cf | csdr fractional_decimator_ff 5 | csdr deemphasis_wfm_ff 48000 50e-6 | csdr convert_f_s16 | mplayer -cache 1024 -quiet -ao alsa:device=default -rawaudio samplesize=2:channels=1:rate=48000 -demuxer rawaudio -
